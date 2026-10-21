@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trink-Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+tailwind.config = {
+  theme: { extend: {
+    colors: {
+      bg: 'var(--bg)', surface: 'var(--surface)', ink: 'var(--ink)', muted: 'var(--muted)',
+      line: 'var(--line)', accent: 'var(--accent)', soft: 'var(--soft)', warn: 'var(--warn)',
+      chip: 'var(--chip)', onaccent: 'var(--onaccent)'
+    },
+    fontFamily: { sans: ['Figtree', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] }
+  } }
+};
+</script>
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#EDF3F5; --surface:#FFFFFF; --ink:#102833; --muted:#5D7380; --line:#D6E2E7;
+  --accent:#12709E; --soft:#A9D4E6; --warn:#A8660E; --chip:#E2EDF1; --onaccent:#FFFFFF;
+  --water:#7CC6E0; --water2:#4FA8CC;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0A1820; --surface:#11242D; --ink:#E3EFF3; --muted:#8CA4AF; --line:#22404C;
+    --accent:#4FB0DC; --soft:#24566D; --warn:#E3A44A; --chip:#18323D; --onaccent:#0A1820;
+    --water:#1F6E92; --water2:#2E8DB8;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0A1820; --surface:#11242D; --ink:#E3EFF3; --muted:#8CA4AF; --line:#22404C;
+  --accent:#4FB0DC; --soft:#24566D; --warn:#E3A44A; --chip:#18323D; --onaccent:#0A1820;
+  --water:#1F6E92; --water2:#2E8DB8;
+  color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--bg); color:var(--ink); font-variant-numeric:tabular-nums; -webkit-tap-highlight-color:transparent}
+.chips{scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+#water{transition:transform 1.1s cubic-bezier(.2,.8,.2,1)}
+.wave-a{animation:wave 7s linear infinite}
+.wave-b{animation:wave 4.5s linear infinite reverse}
+@keyframes wave{from{transform:translateX(0)}to{transform:translateX(-200px)}}
+.bar-fill{transition:height .5s cubic-bezier(.2,.8,.2,1)}
+.tap{transition:transform .12s}
+.tap:active{transform:scale(.96)}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+nav.bottom{position:fixed; left:0; right:0; bottom:0; padding-bottom:env(safe-area-inset-bottom,0px)}
+#toast{bottom:calc(5.25rem + env(safe-area-inset-bottom,0px))}
+@media (prefers-reduced-motion: reduce){
+  .wave-a,.wave-b{animation:none}
+  #water,.bar-fill,.tap{transition:none}
+}
+:root{--glass:#3E5A66; --glassbg:#EEF6F9}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){--glass:#A9C4CF; --glassbg:#1A3540} }
+:root[data-theme="dark"]{--glass:#A9C4CF; --glassbg:#1A3540}
+.drink-btn:hover{background:var(--chip)}
+.pop{animation:pop .45s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pop{0%{transform:scale(1) rotate(0)}40%{transform:scale(1.15) rotate(-8deg)}100%{transform:scale(1) rotate(0)}}
+@media (prefers-reduced-motion: reduce){ .pop{animation:none} }
+.sheet-in{animation:sheetUp .28s cubic-bezier(.2,.8,.2,1)}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+#sheet-range{height:2.5rem; accent-color:var(--accent)}
+@media (prefers-reduced-motion: reduce){ .sheet-in{animation:none} }
+.party-card{animation:cardIn .55s cubic-bezier(.2,1.5,.4,1)}
+.party-emoji{display:inline-block; animation:hop 1.1s ease-in-out infinite; transform-origin:50% 90%}
+@keyframes cardIn{from{transform:scale(.6) translateY(30px); opacity:0}to{transform:none; opacity:1}}
+@keyframes hop{0%,100%{transform:translateY(0) rotate(0)}30%{transform:translateY(-14px) rotate(-10deg)}60%{transform:translateY(0) rotate(8deg)}}
+@media (prefers-reduced-motion: reduce){ .party-card,.party-emoji{animation:none} }
+</style>
+</head>
+<body class="font-sans antialiased">
+
+<main class="max-w-md mx-auto px-4 pt-6 pb-32">
+
+  <!-- HEUTE -->
+  <section id="v-heute" data-view="heute">
+    <header class="mb-4">
+      <p id="today-date" class="text-sm text-muted"></p>
+      <h1 id="day-title" class="text-3xl font-extrabold tracking-tight">Heute</h1>
+    </header>
+
+    <div class="bg-surface border border-line rounded-3xl p-5 mb-5">
+      <div class="relative w-56 h-56 mx-auto">
+        <svg viewBox="0 0 200 200" class="w-full h-full" aria-hidden="true">
+          <defs><clipPath id="glass"><circle cx="100" cy="100" r="92"/></clipPath></defs>
+          <circle cx="100" cy="100" r="96" fill="none" stroke="var(--line)" stroke-width="4"/>
+          <g clip-path="url(#glass)">
+            <rect x="0" y="0" width="200" height="200" fill="var(--chip)"/>
+            <g id="water" style="transform:translateY(200px)">
+              <path class="wave-b" fill="var(--water2)" opacity=".55"
+                d="M0,8 q25,-12 50,0 t50,0 t50,0 t50,0 t50,0 t50,0 t50,0 t50,0 V230 H0 Z"/>
+              <path class="wave-a" fill="var(--water)"
+                d="M0,12 q25,-10 50,0 t50,0 t50,0 t50,0 t50,0 t50,0 t50,0 t50,0 V230 H0 Z"/>
+            </g>
+          </g>
+        </svg>
+        <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+          <span class="text-5xl font-extrabold leading-none"><span id="big-l">0.0</span><span class="text-2xl font-bold"> L</span></span>
+          <span id="pct" class="mt-1 text-sm font-semibold"></span>
+        </div>
+      </div>
+      <p id="goal-text" class="mt-4 text-center text-lg font-semibold" aria-live="polite"></p>
+      <p id="sub-text" class="mt-1 text-center text-sm text-muted"></p>
+    </div>
+
+    <div class="bg-surface border border-line rounded-3xl p-4 mb-5">
+      <h2 class="text-lg font-bold mb-3 px-1">Getränk hinzufügen</h2>
+      <div id="cats" class="flex flex-wrap gap-2 mb-3" role="tablist" aria-label="Kategorien"></div>
+      <div id="drinks" class="grid grid-cols-3 gap-x-1 gap-y-2" role="tabpanel"></div>
+    </div>
+
+    <div class="bg-surface border border-line rounded-3xl p-4">
+      <div class="flex items-start justify-between gap-3 mb-2 px-1">
+        <div>
+          <h2 id="list-title" class="text-lg font-bold leading-tight">Heute getrunken</h2>
+          <p id="list-day" class="text-sm text-muted"></p>
+        </div>
+        <label class="sr-only" for="day-select">Tag auswählen</label>
+        <select id="day-select" class="tap rounded-xl bg-chip text-ink font-semibold text-sm px-3 py-2 border-0">
+          <option value="0">Heute</option>
+          <option value="-1">Gestern</option>
+        </select>
+      </div>
+      <ul id="today-list" class="divide-y divide-line"></ul>
+      <p id="today-empty" class="text-sm text-muted px-1 py-3">Noch nichts eingetragen. Tipp oben auf ein Getränk, um es hinzuzufügen.</p>
+    </div>
+  </section>
+
+  <!-- STATISTIK -->
+  <section id="v-statistik" data-view="statistik" hidden>
+    <header class="mb-4">
+      <h1 class="text-3xl font-extrabold tracking-tight">Statistik</h1>
+    </header>
+
+    <div class="grid grid-cols-3 bg-chip rounded-2xl p-1 mb-5" role="tablist" aria-label="Zeitraum">
+      <button data-mode="week"  class="seg tap rounded-xl py-2 text-sm font-semibold">Woche</button>
+      <button data-mode="month" class="seg tap rounded-xl py-2 text-sm font-semibold">Monat</button>
+      <button data-mode="year"  class="seg tap rounded-xl py-2 text-sm font-semibold">Jahr</button>
+    </div>
+
+    <div class="bg-surface border border-line rounded-3xl p-5">
+      <p id="avg-label" class="text-sm text-muted"></p>
+      <p class="mt-1"><span id="avg-value" class="text-4xl font-extrabold">0.0</span><span class="text-xl font-bold"> L pro Tag</span></p>
+      <p id="goal-days" class="mt-1 text-sm text-muted"></p>
+
+      <div class="relative mt-6 h-44">
+        <div id="goal-line" class="absolute left-0 right-0 border-t-2 border-dashed border-accent pointer-events-none" style="bottom:0">
+          <span class="absolute right-0 -top-5 text-xs font-semibold text-accent">Ziel</span>
+        </div>
+        <div id="bars" class="absolute inset-0 flex items-end gap-1"></div>
+      </div>
+      <div id="bar-labels" class="flex gap-1 mt-2 text-[11px] text-muted"></div>
+      <p id="bar-detail" class="mt-4 text-sm font-medium min-h-[1.25rem]" aria-live="polite"></p>
+    </div>
+    <p class="mt-4 text-xs text-muted px-1">Durchschnitte zählen ab dem Tag deines ersten Eintrags, damit ein neuer Start den Wert nicht künstlich senkt. Die Jahresansicht zeigt pro Monat den Durchschnitt pro Tag.</p>
+  </section>
+
+  <!-- EINSTELLUNGEN -->
+  <section id="v-einstellungen" data-view="einstellungen" hidden>
+    <header class="mb-4">
+      <h1 class="text-3xl font-extrabold tracking-tight">Einstellungen</h1>
+    </header>
+
+    <div class="bg-surface border border-line rounded-3xl p-5 mb-5">
+      <div class="flex items-baseline justify-between mb-3">
+        <label for="goal" class="text-lg font-bold">Tagesziel</label>
+        <span class="text-lg font-bold"><span id="goal-out">2.5</span> L</span>
+      </div>
+      <input id="goal" type="range" min="1000" max="4000" step="100" class="w-full" style="accent-color:var(--accent)">
+      <p class="mt-2 text-sm text-muted">Gezählt wird die effektive Wassermenge, also Menge mal Anrechnungsfaktor.</p>
+    </div>
+
+    <div class="bg-surface border border-line rounded-3xl p-5 mb-5">
+      <h2 class="text-lg font-bold">Erinnerungen</h2>
+      <p class="mt-1 mb-4 text-sm text-muted">Zur eingestellten Zeit erscheint ein Hinweis mit Tropfen-Ton, falls du die Menge noch nicht erreicht hast. Das funktioniert, solange die App geöffnet ist.</p>
+      <div id="rem-list" class="grid gap-3"></div>
+      <button id="rem-test" class="tap mt-4 w-full rounded-2xl bg-chip font-semibold py-3">Erinnerung testen</button>
+    </div>
+
+    <div class="bg-surface border border-line rounded-3xl p-5 mb-5">
+      <h2 class="text-lg font-bold">Datensicherung</h2>
+      <p class="mt-1 mb-4 text-sm text-muted">Deine Daten liegen nur auf diesem Gerät. Sichere sie regelmässig, damit du sie wiederherstellen kannst.</p>
+      <div class="grid gap-2">
+        <button id="export-json" class="tap w-full rounded-2xl bg-accent text-onaccent font-semibold py-3">Daten sichern (Export)</button>
+        <button id="export-csv" class="tap w-full rounded-2xl bg-chip font-semibold py-3">Als Tabelle exportieren (CSV)</button>
+        <button id="import-btn" class="tap w-full rounded-2xl border-2 border-accent text-accent font-semibold py-3">Daten wiederherstellen (Import)</button>
+        <input id="import-file" type="file" accept=".json,application/json" class="hidden">
+      </div>
+      <p id="io-msg" class="mt-3 text-sm min-h-[1.25rem]" aria-live="polite"></p>
+      <div id="import-confirm" class="hidden mt-2 rounded-2xl bg-chip p-4">
+        <p id="import-text" class="text-sm font-medium mb-3"></p>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="imp-replace" class="tap rounded-xl bg-accent text-onaccent font-semibold py-2 text-sm">Ersetzen</button>
+          <button id="imp-merge" class="tap rounded-xl bg-surface border border-line font-semibold py-2 text-sm">Zusammenführen</button>
+          <button id="imp-cancel" class="tap col-span-2 rounded-xl font-semibold py-2 text-sm text-muted">Abbrechen</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-surface border border-line rounded-3xl p-5">
+      <h2 class="text-lg font-bold">Alle Daten löschen</h2>
+      <p class="mt-1 mb-4 text-sm text-muted">Entfernt alle Einträge von diesem Gerät. Exportiere vorher, wenn du sie behalten möchtest.</p>
+      <button id="reset-btn" class="tap w-full rounded-2xl border border-line text-warn font-semibold py-3">Daten löschen</button>
+      <div id="reset-confirm" class="hidden mt-3 rounded-2xl bg-chip p-4">
+        <p id="reset-text" class="text-sm font-medium mb-3"></p>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="reset-yes" class="tap rounded-xl bg-warn text-onaccent font-semibold py-2 text-sm">Endgültig löschen</button>
+          <button id="reset-no" class="tap rounded-xl bg-surface border border-line font-semibold py-2 text-sm">Abbrechen</button>
+        </div>
+      </div>
+    </div>
+    <p class="mt-4 text-xs text-muted px-1">Die Anrechnungsfaktoren sind grobe Schätzwerte zur Orientierung und keine medizinische Empfehlung.</p>
+  </section>
+</main>
+
+<div id="sheet-bg" class="fixed inset-0 z-30 bg-black/40 hidden"></div>
+<div id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" class="fixed inset-x-0 bottom-0 z-40 hidden">
+  <div class="max-w-md mx-auto bg-surface border border-line rounded-t-3xl px-5 pt-3" style="padding-bottom:calc(1.25rem + env(safe-area-inset-bottom,0px))">
+    <div class="w-10 h-1.5 rounded-full bg-line mx-auto mb-4"></div>
+    <div class="flex items-center gap-4">
+      <div id="sheet-icon" class="w-24 h-24 shrink-0"></div>
+      <div class="flex-1 min-w-0">
+        <h2 id="sheet-title" class="text-lg font-bold leading-tight"></h2>
+        <p class="mt-0.5"><span id="sheet-ml" class="text-3xl font-extrabold">0</span><span class="text-lg font-bold"> ml</span></p>
+        <input id="sheet-range" type="range" min="10" max="500" step="10" class="w-full" aria-label="Getrunkene Menge in ml">
+        <div class="flex justify-between text-[11px] text-muted -mt-1"><span>10 ml</span><span id="sheet-max"></span></div>
+      </div>
+    </div>
+    <p id="sheet-eff" class="mt-3 text-sm text-muted"></p>
+    <p id="sheet-day" class="mt-1 text-sm font-semibold text-accent hidden"></p>
+    <div class="grid grid-cols-3 gap-2 mt-3">
+      <button id="sheet-minus" class="tap rounded-xl bg-chip font-semibold py-2 text-sm">−10 ml</button>
+      <button id="sheet-std" class="tap rounded-xl bg-chip font-semibold py-2 text-sm">Standard</button>
+      <button id="sheet-plus" class="tap rounded-xl bg-chip font-semibold py-2 text-sm">+10 ml</button>
+    </div>
+    <div class="grid grid-cols-2 gap-2 mt-4">
+      <button id="sheet-cancel" class="tap rounded-2xl border border-line font-semibold py-3">Abbrechen</button>
+      <button id="sheet-add" class="tap rounded-2xl bg-accent text-onaccent font-semibold py-3">Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<div id="remind" class="fixed inset-0 z-50 hidden" role="alertdialog" aria-modal="true" aria-labelledby="remind-title" aria-describedby="remind-text">
+  <div id="remind-bg" class="absolute inset-0 bg-black/45"></div>
+  <div class="relative h-full flex items-center justify-center px-6">
+    <div class="party-card bg-surface border border-line rounded-3xl px-6 py-8 text-center max-w-sm w-full">
+      <div class="party-emoji text-7xl leading-none" aria-hidden="true">💧</div>
+      <h2 id="remind-title" class="mt-4 text-2xl font-extrabold leading-tight">Zeit für einen Schluck!</h2>
+      <p id="remind-text" class="mt-2 text-muted"></p>
+      <div class="grid gap-2 mt-6">
+        <button id="remind-add" class="tap w-full rounded-2xl bg-accent text-onaccent font-semibold py-3">Wasser eintragen</button>
+        <button id="remind-later" class="tap w-full rounded-2xl border border-line font-semibold py-3">Später</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="party" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="party-title">
+  <div id="party-bg" class="absolute inset-0 bg-black/45"></div>
+  <div class="relative h-full flex items-center justify-center px-6">
+    <div class="party-card bg-surface border border-line rounded-3xl px-6 py-8 text-center max-w-sm w-full">
+      <div id="party-emoji" class="party-emoji text-7xl leading-none" aria-hidden="true">🥳</div>
+      <h2 id="party-title" class="mt-4 text-2xl font-extrabold leading-tight"></h2>
+      <p id="party-sub" class="mt-2 text-muted"></p>
+      <button id="party-ok" class="tap mt-6 w-full rounded-2xl bg-accent text-onaccent font-semibold py-3">Weiter so!</button>
+    </div>
+  </div>
+  <canvas id="confetti" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+</div>
+
+<div id="toast" class="fixed left-1/2 -translate-x-1/2 z-20 hidden">
+  <div class="flex items-center gap-3 bg-ink text-bg rounded-2xl pl-4 pr-2 py-2 shadow-lg">
+    <span id="toast-text" class="text-sm font-medium"></span>
+    <button id="toast-undo" class="text-sm font-bold px-3 py-1 rounded-xl">Rückgängig</button>
+  </div>
+</div>
+
+<nav class="bottom z-10 bg-surface border-t border-line">
+  <div class="max-w-md mx-auto grid grid-cols-3">
+    <button data-nav="heute" class="navbtn tap flex flex-col items-center gap-1 py-2.5 text-xs font-semibold">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
+      Heute
+    </button>
+    <button data-nav="statistik" class="navbtn tap flex flex-col items-center gap-1 py-2.5 text-xs font-semibold">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+      Statistik
+    </button>
+    <button data-nav="einstellungen" class="navbtn tap flex flex-col items-center gap-1 py-2.5 text-xs font-semibold">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg>
+      Einstellungen
+    </button>
+  </div>
+</nav>
+
+<script>
+/* ---------- Getränke ---------- */
+const CATS = [
+  {id:'wasser', label:'Wasser & Tee'},
+  {id:'kaffee', label:'Kaffee & Eistee'},
+  {id:'saft',   label:'Säfte & Smoothies'},
+  {id:'milch',  label:'Milch, Shakes & Suppe'},
+  {id:'soft',   label:'Softdrinks & Sport'},
+  {id:'genuss', label:'Genuss & Alkohol'}
+];
+const DRINKS = [
+  {c:'wasser', id:'wasser',      e:'💧', name:'Wasser',            ml:100, f:1.00},
+  {c:'wasser', id:'sprudel',     e:'🫧', name:'Sprudelwasser',     ml:300, f:1.00},
+  {c:'wasser', id:'kraeutertee', e:'🍵', name:'Kräutertee',        ml:300, f:1.00},
+  {c:'kaffee', id:'kaffee',      e:'☕', name:'Kaffee',            ml:100, f:0.90},
+  {c:'kaffee', id:'espresso',    e:'🫘', name:'Espresso',          ml:50,  f:1.00},
+  {c:'kaffee', id:'eistee',      e:'🍑', name:'Eistee',            ml:300, f:0.75},
+  {c:'saft',   id:'orangensaft', e:'🍊', name:'Orangensaft',       ml:100, f:0.86},
+  {c:'saft',   id:'apfelsaft',   e:'🍎', name:'Apfelsaft',         ml:300, f:0.85},
+  {c:'saft',   id:'traubensaft', e:'🍇', name:'Traubensaft',       ml:300, f:0.82},
+  {c:'saft',   id:'multivitamin',e:'🧃', name:'Multivitaminsaft',  ml:300, f:0.85},
+  {c:'saft',   id:'aloesaft',    e:'🌵', name:'Aloesaft',          ml:250, f:0.90},
+  {c:'saft',   id:'smoothie',    e:'🍓', name:'Smoothie',          ml:250, f:0.70},
+  {c:'milch',  id:'haferdrink',  e:'🌾', name:'Haferdrink',        ml:250, f:0.90},
+  {c:'milch',  id:'soyadrink',   e:'🫛', name:'Soyadrink',         ml:250, f:0.91},
+  {c:'milch',  id:'buttermilch', e:'🥛', name:'Buttermilch',       ml:250, f:0.90},
+  {c:'milch',  id:'kefir',       e:'🫙', name:'Kefir',             ml:250, f:0.88},
+  {c:'milch',  id:'bananenshake',e:'🍌', name:'Bananenshake',      ml:400, f:0.65},
+  {c:'milch',  id:'gemuesesuppe',e:'🥣', name:'Frische Gemüsesuppe', ml:300, f:0.85},
+  {c:'soft',   id:'softdrink',   e:'🥤', name:'Cola',              ml:100, f:0.89},
+  {c:'soft',   id:'vitaminwasser', e:'🧴', name:'Vitamin-Wasser',  ml:500, f:0.98},
+  {c:'soft',   id:'sportdrink',  e:'⚡', name:'Sportgetränk zuckerfrei', ml:500, f:0.98},
+  {c:'soft',   id:'tonic',       e:'🧊', name:'Tonic Water',       ml:300, f:0.66},
+  {c:'soft',   id:'limonade',    e:'🍋', name:'Limonade',          ml:300, f:0.66},
+  {c:'genuss', id:'bier0',       e:'🍻', name:'Alkoholfreies Bier',ml:330, f:0.95},
+  {c:'genuss', id:'crodino',     e:'🍹', name:'Crodino',           ml:100, f:0.70},
+  {c:'genuss', id:'bier',        e:'🍺', name:'Bier',              ml:330, f:0.30},
+  {c:'genuss', id:'weisswein',   e:'🥂', name:'Weisswein',         ml:100, f:0.10},
+  {c:'genuss', id:'rotwein',     e:'🍷', name:'Rotwein',           ml:100, f:0.10},
+  {c:'genuss', id:'schaumwein',  e:'🍾', name:'Schaumwein',        ml:100, f:0.05}
+];
+
+/* Übliche Portionsgrössen in ml (Startwert im Schieber) */
+const PORTIONS = {
+  wasser:300, sprudel:300, kraeutertee:250, kaffee:200, espresso:30, eistee:300,
+  orangensaft:200, apfelsaft:200, traubensaft:200, multivitamin:200, aloesaft:250, smoothie:250,
+  haferdrink:250, soyadrink:250, buttermilch:250, kefir:250, bananenshake:400, gemuesesuppe:300,
+  softdrink:330, vitaminwasser:500, sportdrink:500, tonic:200, limonade:330,
+  bier0:330, crodino:100, bier:330, weisswein:100, rotwein:100, schaumwein:100
+};
+DRINKS.forEach(d => { if (PORTIONS[d.id]) d.ml = PORTIONS[d.id]; });
+const maxFor = d => Math.min(1000, Math.max(200, Math.ceil(d.ml * 2.5 / 50) * 50));
+
+/* ---------- Illustrationen ---------- */
+let UID = 0;
+const ST = 'stroke="var(--glass)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"';
+const FONT = 'font-family="Figtree,system-ui,sans-serif"';
+const svgWrap = c => `<svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true" focusable="false">${c}</svg>`;
+function vessel(path, level, color, o = {}){
+  const id = 'v' + (UID++);
+  const fill = typeof color === 'function' ? color(id) : color;
+  return `${o.before || ''}<defs><clipPath id="${id}"><path d="${path}"/></clipPath>${o.defs ? o.defs(id) : ''}</defs>
+    <path d="${path}" fill="var(--glassbg)"/>
+    <g clip-path="url(#${id})"><rect x="0" y="${level}" width="64" height="70" fill="${fill}"/>${o.inside || ''}</g>
+    <path d="${path}" fill="none" ${ST}/>${o.after || ''}`;
+}
+const bub = (pts, c = '#fff') => pts.map(([x,y,r]) => `<circle cx="${x}" cy="${y}" r="${r || 1.4}" fill="${c}" opacity=".8"/>`).join('');
+const shine = d => `<path d="${d}" stroke="#fff" stroke-opacity=".55" stroke-width="2.2" stroke-linecap="round" fill="none"/>`;
+const steam = (xs, y = 16) => `<path d="${xs.map(x => `M${x} ${y} q-3 -4 0 -8`).join(' ')}" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round" opacity=".6"/>`;
+const stem = (y1, y2, yb) => `<path d="M32 ${y1} V${y2} M23 ${yb} H41" fill="none" stroke="var(--glass)" stroke-width="2.4" stroke-linecap="round"/>`;
+const slice = (cx, cy, r, rind, pulp) => `<path d="M${cx-r} ${cy} A${r} ${r} 0 0 0 ${cx+r} ${cy} Z" fill="${rind}"/><path d="M${cx-r+2} ${cy} A${r-2} ${r-2} 0 0 0 ${cx+r-2} ${cy} Z" fill="${pulp}"/><path d="M${cx} ${cy} L${cx-(r-3)*.7} ${cy+(r-3)*.7} M${cx} ${cy} V${cy+r-3} M${cx} ${cy} L${cx+(r-3)*.7} ${cy+(r-3)*.7}" stroke="${rind}" stroke-width="1"/>`;
+const cap = (x, y, w, h, c) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.6" fill="${c}" ${ST}/>`;
+const label = (x, y, t, c, s = 6.5) => `<text x="${x}" y="${y}" text-anchor="middle" font-size="${s}" font-weight="800" fill="${c}" ${FONT}>${t}</text>`;
+
+const TUM    = 'M17 12 H47 L43 55 Q42.6 58 40 58 H24 Q21.4 58 21 55 Z';
+const TUM_L  = 'M12 12 H40 L36.5 55 Q36 58 33.5 58 H18.5 Q16 58 15.5 55 Z';
+const TALL   = 'M19 14 H45 L42 56 Q41.6 59 39 59 H25 Q22.4 59 22 56 Z';
+const MUG    = 'M12 20 H44 L42 53 Q41.5 58 36 58 H20 Q14.5 58 14 53 Z';
+const ESP    = 'M18 32 H42 L40 47 Q39.5 51 35 51 H25 Q20.5 51 20 47 Z';
+const BEER   = 'M14 12 H42 V55 Q42 58 39 58 H17 Q14 58 14 55 Z';
+const WINE   = 'M18 8 H46 Q48 30 32 36 Q16 30 18 8 Z';
+const FLUTE  = 'M25 4 H39 L38 32 Q37.5 40 32 40 Q26.5 40 26 32 Z';
+const APERO  = 'M12 14 H52 Q52 36 32 38 Q12 36 12 14 Z';
+const BOTTLE = 'M27 8 H37 V15 Q46 20 46 30 V54 Q46 59 41 59 H23 Q18 59 18 54 V30 Q18 20 27 15 Z';
+const TONIC  = 'M29 5 H35 V18 Q42 24 42 32 V56 Q42 59 39 59 H25 Q22 59 22 56 V32 Q22 24 29 18 Z';
+const SPORT  = 'M20 20 H44 V30 Q41 34 41 38 Q41 42 44 46 V55 Q44 59 40 59 H24 Q20 59 20 55 V46 Q23 42 23 38 Q23 34 20 30 Z';
+const MILK   = 'M21 7 H33 V13 Q39 17 39 26 V54 Q39 59 34 59 H20 Q15 59 15 54 V26 Q15 17 21 13 Z';
+const KEFIR  = 'M25 9 H39 V15 Q48 18 48 30 V53 Q48 58 43 58 H21 Q16 58 16 53 V30 Q16 18 25 15 Z';
+const PITCH  = 'M16 14 H44 L51 10 L47 21 V54 Q47 58 43 58 H20 Q16 58 16 54 Z';
+const CARAFE = 'M23 6 H39 V16 Q52 24 52 40 V52 Q52 58 46 58 H16 Q10 58 10 52 V40 Q10 24 23 16 Z';
+
+const MUG_HANDLE = `<path d="M43.4 27 H47 Q55 27 55 36 Q55 46 45 46 H42.2" fill="none" stroke="var(--glass)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`;
+const BEER_HANDLE = `<path d="M42 21 H49 Q52 21 52 24 V42 Q52 45 49 45 H42" fill="none" stroke="var(--glass)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`;
+const FOAM = `<path d="M13 22 Q10 14 17 13 Q19 7 25 9 Q29 4 34 8 Q40 5 42 11 Q47 14 43 22 Z" fill="#FFF7E2" ${ST}/>`;
+const BEER_BUB = bub([[20,48,1.2],[25,40,1],[33,51,1.4],[37,34,1],[29,30,1.1],[22,33,.9]], '#FFF4C8');
+const APPLE = `<path d="M50 45 Q44 40.5 42 47.5 Q41 55.5 47 58.5 Q49.5 59.5 50 58.6 Q50.5 59.5 53 58.5 Q59 55.5 58 47.5 Q56 40.5 50 45 Z" fill="#D9392B" stroke="#A9261B" stroke-width="1.2"/><path d="M50 45 Q50.5 41 52 39" fill="none" stroke="#6B4423" stroke-width="1.6" stroke-linecap="round"/><path d="M52 41 Q56 37 59 40 Q55 43 52 41 Z" fill="#5FA03A"/>`;
+const flake = (x, y, a) => `<ellipse cx="${x}" cy="${y}" rx="5" ry="3.4" transform="rotate(${a} ${x} ${y})" fill="#E6C88E" stroke="#B38B4D" stroke-width="1"/><path d="M${x-2.5} ${y} H${x+2.5}" transform="rotate(${a} ${x} ${y})" stroke="#C9A465" stroke-width=".8"/>`;
+const vit = (x, y, t) => `<circle cx="${x}" cy="${y}" r="5.3" fill="#fff" stroke="#D9534F" stroke-width="1.2"/>${label(x, y + 1.8, t, '#C0392B', 5)}`;
+
+const ICONS = {
+  wasser: () => vessel(TUM, 22, '#9FD6F0', {after: shine('M21.5 17 L24.5 52')}),
+  sprudel: () => vessel(BOTTLE, 24, '#3D8FD6', {
+    inside: bub([[26,50,1.7],[33,44,1.2],[38,53,1.9],[29,36,1.3],[36,31,1],[24,29,1.1],[40,40,1.4],[31,55,1]]),
+    after: cap(25.5, 3, 13, 7, '#2A6FB0') + shine('M22 31 V52')}),
+  kraeutertee: () => vessel(MUG, 25, '#F1D97A', {
+    inside: '<rect x="28" y="33" width="11" height="13" rx="2" fill="#C99A3E" opacity=".9"/>',
+    after: MUG_HANDLE + '<path d="M33.5 33 V15 Q33.5 11 29.5 11 H7.5 V17" fill="none" stroke="var(--glass)" stroke-width="1.2"/><rect x="3" y="17" width="9" height="9" rx="1.5" fill="#E9A23B" stroke="var(--glass)" stroke-width="1.4"/>'}),
+  kaffee: () => vessel(MUG, 25, '#6B3F1F', {after: MUG_HANDLE + steam([24, 32])}),
+  espresso: () => vessel(ESP, 35, '#3E2312', {
+    before: `<ellipse cx="30" cy="53.5" rx="20" ry="3.5" fill="var(--glassbg)" ${ST}/>`,
+    inside: '<rect x="0" y="35" width="64" height="2.6" fill="#C08850"/>',
+    after: '<path d="M41.6 36 Q49 36 48.5 41 Q48 45.5 40.6 45.5" fill="none" stroke="var(--glass)" stroke-width="2.4" stroke-linecap="round"/>' + steam([27, 33], 28)}),
+  eistee: () => vessel(CARAFE, 24, '#D9832E', {
+    inside: '<rect x="15" y="29" width="10" height="10" rx="2" fill="#fff" opacity=".55" transform="rotate(-12 20 34)"/><rect x="24" y="40" width="9" height="9" rx="2" fill="#fff" opacity=".5" transform="rotate(10 28 44)"/><rect x="40" y="28" width="8" height="8" rx="2" fill="#fff" opacity=".5"/><circle cx="39" cy="46" r="6.5" fill="#F5D831" stroke="#E2B90F" stroke-width="1.2"/><circle cx="39" cy="46" r="4.6" fill="#FBEB86"/><path d="M39 41.4 V50.6 M34.4 46 H43.6 M35.8 42.8 L42.2 49.2 M42.2 42.8 L35.8 49.2" stroke="#E2B90F" stroke-width=".8"/>',
+    after: '<path d="M35 44 L46 1" stroke="#E8455B" stroke-width="3.2" stroke-linecap="round"/><path d="M37.6 34 L38.6 30 M40.4 23 L41.4 19 M43.2 12 L44.2 8" stroke="#fff" stroke-width="3.3"/>'}),
+  orangensaft: () => vessel(TUM, 22, '#F7941D', {after: shine('M21.5 17 L24.5 52') + slice(47, 13, 9, '#E8790C', '#FDBA4D')}),
+  apfelsaft: () => vessel(TUM_L, 22, '#D6A23E', {after: shine('M16.5 17 L19.5 52') + APPLE}),
+  traubensaft: () => vessel(TUM, 22, '#6E2F94', {after: shine('M21.5 17 L24.5 52')}),
+  multivitamin: () => vessel(TUM, 22, id => `url(#${id}g)`, {
+    defs: id => `<linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD23F"/><stop offset=".55" stop-color="#F7871D"/></linearGradient>`,
+    after: shine('M21.5 17 L24.5 52')}),
+  aloesaft: () => vessel(TUM, 22, '#CFE6AE', {
+    inside: '<rect x="24" y="33" width="6" height="6" rx="1.5" fill="#fff" opacity=".65"/><rect x="34" y="41" width="6" height="6" rx="1.5" fill="#fff" opacity=".65"/><rect x="27" y="48" width="6" height="6" rx="1.5" fill="#fff" opacity=".65"/>',
+    after: shine('M21.5 17 L24.5 52') + '<path d="M43 15 Q49 1 59 4 Q50 7 46 16 Z" fill="#6FA34A"/>'}),
+  smoothie: () => vessel(TUM, 20, '#D9467A', {
+    inside: bub([[26,34,.7],[33,42,.7],[38,30,.7],[29,50,.7],[36,52,.7]], '#5A1430'),
+    after: '<path d="M35 44 L47 1" stroke="#4CAF50" stroke-width="3.2" stroke-linecap="round"/>' + shine('M21.5 17 L24.5 52')}),
+  haferdrink: () => vessel(MILK, 18, '#FFFFFF', {
+    after: cap(19.5, 2, 15, 6, '#C9A56A') + label(27, 42, 'Hafer', '#8A6D3B') + flake(50, 44, -20) + flake(56, 52, 15) + flake(46, 55, 35)}),
+  soyadrink: () => vessel(MILK, 18, '#FFFFFF', {
+    after: cap(19.5, 2, 15, 6, '#7FA84A') + label(27, 42, 'Soya', '#5E7D2E') +
+      '<path d="M43 50 Q43 43 50 43 Q58 43 58 49.5 Q58 56 51.5 56 Q49 54 46.5 56 Q43 56 43 50 Z" fill="#C4D27A" stroke="#7D8F3A" stroke-width="1.2"/><path d="M49 49.5 Q51 48 53 49.5" fill="none" stroke="#7D8F3A" stroke-width="1.1" stroke-linecap="round"/>'}),
+  buttermilch: () => vessel(PITCH, 22, '#FFFFFF', {
+    after: '<path d="M16 23 Q6 23 7 33 Q8 43 16 43" fill="none" stroke="var(--glass)" stroke-width="2.6" stroke-linecap="round"/>' + shine('M41 26 V50')}),
+  kefir: () => vessel(KEFIR, 22, '#FFFFFF', {
+    after: cap(24, 3, 16, 6, '#3B6EA5') + '<path d="M24.5 9 L21.5 16 M39.5 9 L42.5 16" stroke="var(--glass)" stroke-width="1.4" stroke-linecap="round"/>' + label(32, 43, 'Kefir', '#3B6EA5')}),
+  bananenshake: () => vessel(TALL, 20, '#F5E08C', {
+    after: '<path d="M36 12 L45 0" stroke="#F2B01E" stroke-width="3" stroke-linecap="round"/>' +
+      `<path d="M18 21 Q14 13 21 12 Q23 6 29 8 Q33 3 38 7 Q44 6 44 12 Q50 15 46 21 Z" fill="#FFFBEF" ${ST}/>` +
+      '<circle cx="25" cy="12" r="3.2" fill="#F7E7A1" stroke="#D8BF5A" stroke-width="1"/><circle cx="33" cy="9" r="3.2" fill="#F7E7A1" stroke="#D8BF5A" stroke-width="1"/>' + shine('M24 26 L26 52')}),
+  gemuesesuppe: () => `<path d="M8 28 H56 Q55 50 32 54 Q9 50 8 28 Z" fill="#E6EEF1" ${ST}/><ellipse cx="32" cy="28" rx="24" ry="4.5" fill="#B5DB76" ${ST}/>` +
+    bub([[24,28,1.6],[36,27,1.5],[43,29,1.4],[30,29.6,1.2],[18,28.5,1.2]], '#F28C28').replace(/opacity=".8"/g, '') +
+    '<circle cx="28" cy="27" r="1.3" fill="#4F9433"/><circle cx="40" cy="29.5" r="1.2" fill="#4F9433"/>' +
+    `<path d="M24 56.5 H40" stroke="var(--glass)" stroke-width="2.4" stroke-linecap="round"/>` + steam([24, 32, 40], 20),
+  softdrink: () => `<rect x="18" y="9" width="28" height="48" rx="4" fill="#B5202C" ${ST}/><rect x="19" y="6" width="26" height="6" rx="2.5" fill="#C9CED3" ${ST}/><rect x="19" y="53" width="26" height="5" rx="2" fill="#C9CED3" ${ST}/>` +
+    `<text x="32" y="33" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 32 33)" font-size="10" font-weight="800" letter-spacing="1" fill="#fff" ${FONT}>COLA</text>` + shine('M22.5 16 V48'),
+  vitaminwasser: () => vessel(BOTTLE, 24, '#F4A3A3', {
+    after: cap(25.5, 3, 13, 7, '#E57373') + vit(26, 36, 'CA') + vit(38, 36, 'D') + vit(32, 47, 'A')}),
+  sportdrink: () => vessel(SPORT, 26, '#EC4F98', {
+    after: cap(22, 12, 20, 8, '#4A4F55') + cap(28.5, 5, 7, 8, '#8C949B') + shine('M24 32 V36 M24 49 V54')}),
+  tonic: () => vessel(TONIC, 22, '#E6F1E1', {
+    inside: bub([[27,50,1.4],[33,44,1.1],[36,54,1.6],[30,34,1],[35,28,.9],[27,26,1]], '#9CC4A0'),
+    after: cap(27.5, 1, 9, 5, '#A7B1AC') + shine('M25.5 33 V53')}),
+  limonade: () => vessel(TUM, 22, '#F6EB9E', {
+    inside: bub([[27,48,1.4],[34,40,1.1],[38,52,1.6],[30,30,1],[37,28,1.2]]),
+    after: shine('M21.5 17 L24.5 52') + slice(47, 13, 9, '#E2B90F', '#FBEB86')}),
+  bier0: () => vessel(BEER, 20, '#F2B01E', {inside: BEER_BUB, after: BEER_HANDLE + FOAM + label(28, 44, '0.0', '#fff', 11)}),
+  crodino: () => vessel(APERO, 20, '#F2AE24', {
+    inside: bub([[24,26,1.1],[31,31,.9],[38,25,1.2],[44,22,.8],[28,22,.8],[35,34,1]], '#FFF1C4'),
+    after: stem(38, 52, 55)}),
+  bier: () => vessel(BEER, 20, '#F2B01E', {inside: BEER_BUB, after: BEER_HANDLE + FOAM}),
+  weisswein: () => vessel(WINE, 18, '#EEDC8F', {after: stem(36, 54, 56)}),
+  rotwein: () => vessel(WINE, 18, '#7D1631', {after: stem(36, 54, 56)}),
+  schaumwein: () => vessel(FLUTE, 10, '#E6C77E', {
+    inside: bub([[30,34,1],[33,26,.9],[31,18,1.1],[34,14,.8],[29,24,.8]], '#FFF6DA'),
+    after: stem(40, 56, 58)})
+};
+const hasIcon = id => Object.prototype.hasOwnProperty.call(ICONS, id);
+const icon = id => hasIcon(id) ? svgWrap(ICONS[id]()) : '';
+
+/* ---------- Speicher ---------- */
+const DEFAULT_REM = [
+  {id:'r1', time:'14:00', ml:1600, on:true},
+  {id:'r2', time:'18:00', ml:2300, on:true}
+];
+function cleanReminders(arr){
+  return DEFAULT_REM.map(def => {
+    const r = Array.isArray(arr) ? arr.find(x => x && x.id === def.id) : null;
+    if (!r) return {...def};
+    return {
+      id: def.id,
+      time: typeof r.time === 'string' && /^\d{2}:\d{2}$/.test(r.time) ? r.time : def.time,
+      ml: typeof r.ml === 'number' && r.ml >= 100 && r.ml <= 6000 ? r.ml : def.ml,
+      on: r.on !== false
+    };
+  });
+}
+const KEY = 'trinktracker.v1';
+let store = load();
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if (raw){
+      const d = JSON.parse(raw);
+      if (d && Array.isArray(d.entries)) return {goalMl: validGoal(d.goalMl) ? d.goalMl : 2500, entries: d.entries.map(cleanEntry).filter(Boolean), reminders: cleanReminders(d.reminders)};
+    }
+  }catch(e){}
+  return {goalMl:2500, entries:[], reminders: cleanReminders()};
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(store)); }
+  catch(e){ showToast('Speichern auf diesem Gerät nicht möglich', false); }
+}
+function validGoal(g){ return typeof g === 'number' && g >= 500 && g <= 6000; }
+function cleanEntry(x){
+  if (!x || typeof x !== 'object') return null;
+  const ts = Number(x.ts), ml = Number(x.ml), f = Number(x.factor);
+  if (!isFinite(ts) || !isFinite(ml) || ml <= 0 || ml > 5000 || !isFinite(f) || f < 0 || f > 1.5) return null;
+  return {
+    id: typeof x.id === 'string' && x.id ? x.id.slice(0,40) : newId(),
+    ts, ml, factor:f,
+    drinkId: typeof x.drinkId === 'string' ? x.drinkId.slice(0,40) : '',
+    name: typeof x.name === 'string' && x.name ? x.name.slice(0,60) : 'Getränk',
+    emoji: typeof x.emoji === 'string' && x.emoji ? x.emoji.slice(0,8) : '🥤',
+    eff: Math.round(ml*f)
+  };
+}
+function newId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+/* ---------- Format ---------- */
+const nf1 = new Intl.NumberFormat('de-CH',{minimumFractionDigits:1, maximumFractionDigits:1});
+const nfDl = new Intl.NumberFormat('de-CH',{maximumFractionDigits:1});
+const L = ml => nf1.format(ml/1000);
+const DL = ml => nfDl.format(ml/100);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const dayKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const daysBetween = (a,b) => Math.round((startOfDay(b) - startOfDay(a)) / 864e5);
+const timeFmt = new Intl.DateTimeFormat('de-CH',{hour:'2-digit', minute:'2-digit'});
+
+/* ---------- Heute ---------- */
+let activeCat = 'wasser';
+function renderCats(){
+  const el = document.getElementById('cats');
+  el.innerHTML = CATS.map(c => {
+    const on = c.id === activeCat;
+    return `<button role="tab" aria-selected="${on}" data-cat="${c.id}"
+      class="tap rounded-full px-3 py-1.5 text-sm font-semibold whitespace-nowrap ${on ? 'bg-accent text-onaccent' : 'bg-chip text-ink'}">${c.label}</button>`;
+  }).join('');
+}
+function renderDrinks(){
+  const el = document.getElementById('drinks');
+  el.innerHTML = DRINKS.filter(d => d.c === activeCat).map(d => {
+    const eff = Math.round(d.ml*d.f);
+    const low = d.f < 0.5;
+    return `<button data-drink="${d.id}" aria-label="${d.name}, Menge wählen" class="drink-btn tap flex flex-col items-center text-center rounded-2xl px-1 pt-1 pb-2">
+      <span class="drink-icon block w-[4.5rem] h-[4.5rem]">${icon(d.id)}</span>
+      <span class="block text-xs font-semibold leading-tight mt-0.5">${d.name}</span>
+      <span class="block text-[11px] mt-0.5 ${low ? 'text-warn font-semibold' : 'text-muted'}">${d.ml} ml</span>
+    </button>`;
+  }).join('');
+}
+
+let viewOffset = 0;
+function selDate(){ const d = startOfDay(new Date()); d.setDate(d.getDate() + viewOffset); return d; }
+const longDay = new Intl.DateTimeFormat('de-CH',{weekday:'long', day:'numeric', month:'long'});
+const weekdayName = new Intl.DateTimeFormat('de-CH',{weekday:'long'});
+function todayEntries(){
+  const k = dayKey(selDate());
+  return store.entries.filter(e => dayKey(new Date(e.ts)) === k).sort((a,b) => b.ts - a.ts);
+}
+function renderToday(){
+  const list = todayEntries();
+  const eff = list.reduce((s,e) => s + e.eff, 0);
+  const raw = list.reduce((s,e) => s + e.ml, 0);
+  const goal = store.goalMl;
+  const pct = goal ? eff/goal : 0;
+
+  const sd = selDate(), isToday = viewOffset === 0;
+  document.getElementById('today-date').textContent = longDay.format(sd);
+  document.getElementById('day-title').textContent = isToday ? 'Heute' : 'Gestern';
+  document.getElementById('list-title').textContent = isToday ? 'Heute getrunken' : 'Gestern getrunken';
+  document.getElementById('list-day').textContent = longDay.format(sd);
+  const sel = document.getElementById('day-select');
+  const yd = startOfDay(new Date()); yd.setDate(yd.getDate() - 1);
+  sel.options[0].textContent = `Heute (${weekdayName.format(new Date())})`;
+  sel.options[1].textContent = `Gestern (${weekdayName.format(yd)})`;
+  sel.value = String(viewOffset);
+  document.getElementById('big-l').textContent = L(eff);
+  document.getElementById('pct').textContent = `${Math.round(pct*100)} % des Ziels`;
+  document.getElementById('goal-text').textContent = pct >= 1
+    ? `🎉 Tagesziel erreicht: ${L(eff)} von ${L(goal)} Litern`
+    : `${L(eff)} von ${L(goal)} Litern erreicht`;
+  document.getElementById('sub-text').textContent = list.length
+    ? `Insgesamt getrunken: ${L(raw)} L, davon angerechnet ${L(eff)} L`
+    : `Noch ${L(goal)} Liter bis zum Tagesziel`;
+
+  const fill = Math.min(pct, 1.04);
+  const y = 200 - fill*200 - (fill > 0 ? 6 : -6);
+  document.getElementById('water').style.transform = `translateY(${y}px)`;
+
+  const ul = document.getElementById('today-list');
+  document.getElementById('today-empty').hidden = list.length > 0;
+  ul.innerHTML = list.map(e => `
+    <li class="flex items-center gap-3 py-2.5 px-1">
+      ${hasIcon(e.drinkId) ? `<span class="block w-10 h-10 shrink-0">${icon(e.drinkId)}</span>` : `<span class="text-2xl" aria-hidden="true">${esc(e.emoji)}</span>`}
+      <span class="flex-1 min-w-0">
+        <span class="block text-sm font-semibold truncate">${esc(e.name)}</span>
+        <span class="block text-xs text-muted">${timeFmt.format(new Date(e.ts))} Uhr, ${e.ml} ml, zählt ${e.eff} ml</span>
+      </span>
+      <button data-edit="${esc(e.id)}" aria-label="${esc(e.name)} bearbeiten" class="tap w-9 h-9 rounded-full bg-chip text-muted grid place-items-center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+      <button data-del="${esc(e.id)}" aria-label="${esc(e.name)} löschen" class="tap w-9 h-9 rounded-full bg-chip text-muted text-lg leading-none">×</button>
+    </li>`).join('');
+}
+
+function addDrink(id, ml){
+  const d = DRINKS.find(x => x.id === id);
+  if (!d) return;
+  ml = Math.max(10, Math.round(ml || d.ml));
+  let ts = Date.now();
+  if (viewOffset !== 0){ const sd = selDate(); sd.setHours(23, 59, 0, 0); ts = sd.getTime(); }
+  const entry = {id:newId(), ts, drinkId:d.id, name:d.name, emoji:d.e, ml, factor:d.f, eff:Math.round(ml*d.f)};
+  const before = dayTotal(ts);
+  store.entries.push(entry);
+  const wasYesterday = viewOffset !== 0;
+  viewOffset = 0;
+  save(); renderToday();
+  showToast(`${d.name}, ${ml} ml ${wasYesterday ? 'für gestern ' : ''}hinzugefügt`, () => removeEntry(entry.id));
+  maybeCelebrate(before, ts, wasYesterday);
+}
+function removeEntry(id){
+  store.entries = store.entries.filter(e => e.id !== id);
+  save(); renderToday();
+}
+
+document.getElementById('cats').addEventListener('click', e => {
+  const b = e.target.closest('[data-cat]'); if (!b) return;
+  activeCat = b.dataset.cat; renderCats(); renderDrinks();
+});
+document.getElementById('drinks').addEventListener('click', e => {
+  const b = e.target.closest('[data-drink]'); if (!b) return;
+  const ic = b.querySelector('.drink-icon');
+  if (ic){ ic.classList.remove('pop'); void ic.offsetWidth; ic.classList.add('pop'); }
+  openSheet(b.dataset.drink, b);
+});
+document.getElementById('today-list').addEventListener('click', e => {
+  const ed = e.target.closest('[data-edit]');
+  if (ed){
+    const en = store.entries.find(x => x.id === ed.dataset.edit);
+    if (en) openSheet(en.drinkId, ed, en);
+    return;
+  }
+  const b = e.target.closest('[data-del]'); if (!b) return;
+  const entry = store.entries.find(x => x.id === b.dataset.del);
+  removeEntry(b.dataset.del);
+  if (entry) showToast(`${entry.name} gelöscht`, () => { store.entries.push(entry); save(); renderToday(); });
+});
+
+document.getElementById('day-select').addEventListener('change', e => {
+  viewOffset = Number(e.target.value) === -1 ? -1 : 0;
+  renderToday();
+});
+
+/* ---------- Mengen-Fenster ---------- */
+const sheet = document.getElementById('sheet'), sheetBg = document.getElementById('sheet-bg');
+const range = document.getElementById('sheet-range');
+let sheetDrink = null, sheetReturn = null, sheetEntry = null;
+function openSheet(id, from, entry){
+  const base = DRINKS.find(x => x.id === id);
+  const d = base || (entry ? {id, name:entry.name, f:entry.factor, ml:entry.ml, e:entry.emoji} : null);
+  if (!d) return;
+  sheetDrink = d; sheetReturn = from || null; sheetEntry = entry || null;
+  range.max = Math.max(maxFor(d), entry ? Math.ceil(entry.ml / 10) * 10 : 0);
+  range.value = entry ? entry.ml : d.ml;
+  document.getElementById('sheet-icon').innerHTML = hasIcon(id) ? icon(id) : `<span class="text-6xl" aria-hidden="true">${esc(d.e || '🥤')}</span>`;
+  document.getElementById('sheet-add').textContent = entry ? 'Speichern' : 'Hinzufügen';
+  const sdEl = document.getElementById('sheet-day');
+  sdEl.textContent = `Wird für gestern (${weekdayName.format(selDate())}) eingetragen.`;
+  sdEl.classList.toggle('hidden', !!entry || viewOffset === 0);
+  document.getElementById('sheet-title').textContent = entry ? `${d.name} bearbeiten` : d.name;
+  document.getElementById('sheet-max').textContent = `${range.max} ml`;
+  document.getElementById('sheet-std').textContent = `Standard ${d.ml} ml`;
+  updateSheet();
+  sheet.classList.remove('hidden'); sheetBg.classList.remove('hidden');
+  const panel = sheet.firstElementChild;
+  panel.classList.remove('sheet-in'); void panel.offsetWidth; panel.classList.add('sheet-in');
+  document.body.style.overflow = 'hidden';
+  range.focus({preventScroll:true});
+}
+function updateSheet(){
+  const ml = Number(range.value), d = sheetDrink;
+  const eff = Math.round(ml * d.f);
+  document.getElementById('sheet-ml').textContent = ml;
+  range.setAttribute('aria-valuetext', `${ml} ml`);
+  const pctF = Math.round(d.f * 100);
+  document.getElementById('sheet-eff').innerHTML = d.f < 0.5
+    ? `<span class="text-warn font-semibold">Zählt nur ${eff} ml</span> für dein Tagesziel (Faktor ${pctF} %).`
+    : `Zählt <strong class="text-ink">${eff} ml</strong> für dein Tagesziel (Faktor ${pctF} %).`;
+  document.getElementById('sheet-minus').disabled = ml <= Number(range.min);
+  document.getElementById('sheet-plus').disabled = ml >= Number(range.max);
+}
+function closeSheet(){
+  sheet.classList.add('hidden'); sheetBg.classList.add('hidden');
+  document.body.style.overflow = '';
+  if (sheetReturn && document.body.contains(sheetReturn)) sheetReturn.focus({preventScroll:true});
+  sheetDrink = null; sheetEntry = null;
+}
+const stepBy = n => { range.value = Math.min(Number(range.max), Math.max(Number(range.min), Number(range.value) + n)); updateSheet(); };
+range.addEventListener('input', updateSheet);
+document.getElementById('sheet-minus').addEventListener('click', () => stepBy(-10));
+document.getElementById('sheet-plus').addEventListener('click', () => stepBy(10));
+document.getElementById('sheet-std').addEventListener('click', () => { range.value = sheetDrink.ml; updateSheet(); });
+document.getElementById('sheet-cancel').addEventListener('click', closeSheet);
+sheetBg.addEventListener('click', closeSheet);
+document.getElementById('sheet-add').addEventListener('click', () => {
+  if (!sheetDrink) return;
+  const id = sheetDrink.id, ml = Number(range.value), editing = sheetEntry;
+  closeSheet();
+  if (editing){
+    const en = store.entries.find(x => x.id === editing.id);
+    if (!en) return;
+    const old = {ml: en.ml, eff: en.eff};
+    const before = dayTotal(en.ts);
+    en.ml = ml; en.eff = Math.round(ml * en.factor);
+    save(); renderToday();
+    maybeCelebrate(before, en.ts, dayKey(new Date(en.ts)) !== dayKey(new Date()));
+    showToast(`${en.name} auf ${ml} ml geändert`, () => { en.ml = old.ml; en.eff = old.eff; save(); renderToday(); });
+  } else {
+    addDrink(id, ml);
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && sheetDrink) closeSheet(); });
+
+/* ---------- Erinnerungen ---------- */
+const REM_KEY = 'trinktracker.rem';
+const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+function getShown(){
+  const k = dayKey(new Date());
+  try{ const s = JSON.parse(localStorage.getItem(REM_KEY)); if (s && s.day === k && Array.isArray(s.ids)) return s; }catch(e){}
+  return {day:k, ids:[]};
+}
+function setShown(s){ try{ localStorage.setItem(REM_KEY, JSON.stringify(s)); }catch(e){} }
+
+function renderReminders(){
+  document.getElementById('rem-list').innerHTML = store.reminders.map((r, i) => `
+    <div class="rounded-2xl bg-chip p-3">
+      <label class="flex items-center gap-2 font-semibold">
+        <input type="checkbox" data-rem-on="${i}" ${r.on ? 'checked' : ''} class="w-5 h-5" style="accent-color:var(--accent)">
+        Erinnerung ${i + 1}
+      </label>
+      <div class="flex flex-wrap items-center gap-2 mt-2 text-sm">
+        <input type="time" data-rem-time="${i}" value="${r.time}" aria-label="Uhrzeit Erinnerung ${i + 1}" class="rounded-lg bg-surface text-ink border border-line px-2 py-1">
+        <span class="text-muted">Uhr, falls weniger als</span>
+        <input type="number" data-rem-l="${i}" value="${(r.ml / 1000).toFixed(1)}" min="0.1" max="6" step="0.1" inputmode="decimal" aria-label="Menge Erinnerung ${i + 1} in Litern" class="w-16 rounded-lg bg-surface text-ink border border-line px-2 py-1 text-right">
+        <span class="text-muted">Liter</span>
+      </div>
+    </div>`).join('');
+}
+document.getElementById('rem-list').addEventListener('change', e => {
+  const t = e.target; let i, changed = false;
+  if (t.dataset.remOn !== undefined){ i = +t.dataset.remOn; store.reminders[i].on = t.checked; changed = true; }
+  if (t.dataset.remTime !== undefined && /^\d{2}:\d{2}$/.test(t.value)){ i = +t.dataset.remTime; store.reminders[i].time = t.value; changed = true; }
+  if (t.dataset.remL !== undefined){
+    const v = parseFloat(String(t.value).replace(',', '.'));
+    i = +t.dataset.remL;
+    if (isFinite(v) && v >= 0.1 && v <= 6){ store.reminders[i].ml = Math.round(v * 1000); changed = true; }
+    t.value = (store.reminders[i].ml / 1000).toFixed(1);
+  }
+  if (!changed) return;
+  save();
+  const s = getShown(); s.ids = s.ids.filter(id => id !== store.reminders[i].id); setShown(s);
+});
+
+/* Tropfen-Ton (Web Audio, ohne externe Datei) */
+let actx = null;
+function audio(){
+  try{
+    if (!actx){ const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; actx = new AC(); }
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  }catch(e){ return null; }
+}
+function unlockAudio(){
+  const ctx = audio(); if (!ctx) return;
+  try{ const b = ctx.createBuffer(1, 1, 22050), s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start(0); }catch(e){}
+}
+document.addEventListener('pointerdown', unlockAudio, {once:true});
+document.addEventListener('keydown', unlockAudio, {once:true});
+function plop(ctx, t, k){
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(420 * k, t);
+  o.frequency.exponentialRampToValueAtTime(1500 * k, t + 0.09);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.55, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+  o.connect(g); g.connect(ctx.destination);
+  o.start(t); o.stop(t + 0.25);
+}
+function dropSound(){
+  const ctx = audio(); if (!ctx) return;
+  const t = ctx.currentTime + 0.03;
+  plop(ctx, t, 1); plop(ctx, t + 0.38, 1.18); plop(ctx, t + 0.62, 0.92);
+}
+
+const remind = document.getElementById('remind');
+let remindReturn = null;
+function showReminder(r, total){
+  const missing = Math.max(0, r.ml - total);
+  document.getElementById('remind-text').textContent =
+    `Es ist ${r.time} Uhr und du bist bei ${L(total)} Litern. Bis ${L(r.ml)} Liter fehlen dir noch ${L(missing)} Liter.`;
+  remindReturn = document.activeElement;
+  remind.classList.remove('hidden');
+  const card = remind.querySelector('.party-card');
+  card.classList.remove('party-card'); void card.offsetWidth; card.classList.add('party-card');
+  document.getElementById('remind-add').focus({preventScroll:true});
+  dropSound();
+  if (navigator.vibrate) try{ navigator.vibrate([60, 80, 60]); }catch(e){}
+}
+function closeRemind(){
+  remind.classList.add('hidden');
+  if (remindReturn && document.body.contains(remindReturn)) remindReturn.focus({preventScroll:true});
+}
+document.getElementById('remind-later').addEventListener('click', closeRemind);
+document.getElementById('remind-bg').addEventListener('click', closeRemind);
+document.getElementById('remind-add').addEventListener('click', () => {
+  closeRemind();
+  viewOffset = 0;
+  activeCat = 'wasser';
+  show('heute'); renderCats(); renderDrinks();
+  openSheet('wasser');
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !remind.classList.contains('hidden')) closeRemind(); });
+document.getElementById('rem-test').addEventListener('click', () => {
+  const r = store.reminders[0];
+  showReminder(r, Math.min(dayTotal(Date.now()), r.ml));
+});
+
+function checkReminders(){
+  if (!remind.classList.contains('hidden')) return;
+  const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
+  const s = getShown();
+  const due = store.reminders.filter(r => r.on && toMin(r.time) <= nowMin && !s.ids.includes(r.id));
+  if (!due.length) return;
+  due.forEach(r => s.ids.push(r.id));
+  setShown(s);
+  const total = dayTotal(Date.now());
+  const open = due.filter(r => total < r.ml).sort((a, b) => toMin(b.time) - toMin(a.time));
+  if (open.length) showReminder(open[0], total);
+}
+setInterval(checkReminders, 20000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(checkReminders, 600); });
+setTimeout(checkReminders, 1500);
+
+/* ---------- Feier ---------- */
+const CHEERS = [
+  {e:'🥳', t:'Bravo, du hast dein Tagesziel erreicht!'},
+  {e:'🎉', t:'Gratulation! Tagesziel geknackt!'},
+  {e:'🐳', t:'Wal-tastisch! Du bist bestens hydriert.'},
+  {e:'💪', t:'Stark! Dein Körper sagt Danke.'},
+  {e:'🌊', t:'Welle gemacht! Ziel erreicht.'},
+  {e:'🏆', t:'Pokal verdient: Tagesziel erreicht!'},
+  {e:'😎', t:'Cool bleiben, gut trinken: Ziel erreicht!'}
+];
+function dayTotal(ts){
+  const k = dayKey(new Date(ts));
+  return store.entries.reduce((s, e) => s + (dayKey(new Date(e.ts)) === k ? e.eff : 0), 0);
+}
+function maybeCelebrate(before, ts, yesterday){
+  const goal = store.goalMl, after = dayTotal(ts);
+  if (before < goal && after >= goal) celebrate(after, yesterday);
+}
+const party = document.getElementById('party');
+let partyReturn = null;
+function celebrate(eff, yesterday){
+  const c = CHEERS[Math.floor(Math.random() * CHEERS.length)];
+  document.getElementById('party-emoji').textContent = c.e;
+  document.getElementById('party-title').textContent = c.t;
+  document.getElementById('party-sub').textContent = `${L(eff)} Liter ${yesterday ? 'gestern' : 'heute'} angerechnet. Weiter so!`;
+  partyReturn = document.activeElement;
+  party.classList.remove('hidden');
+  const card = party.querySelector('.party-card');
+  card.classList.remove('party-card'); void card.offsetWidth; card.classList.add('party-card');
+  document.getElementById('party-ok').focus({preventScroll:true});
+  runConfetti();
+}
+function closeParty(){
+  party.classList.add('hidden');
+  stopConfetti();
+  if (partyReturn && document.body.contains(partyReturn)) partyReturn.focus({preventScroll:true});
+}
+document.getElementById('party-ok').addEventListener('click', closeParty);
+document.getElementById('party-bg').addEventListener('click', closeParty);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !party.classList.contains('hidden')) closeParty(); });
+
+let confRAF = 0;
+function stopConfetti(){
+  cancelAnimationFrame(confRAF); confRAF = 0;
+  const cv = document.getElementById('confetti');
+  cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+}
+function runConfetti(){
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  stopConfetti();
+  const cv = document.getElementById('confetti'), ctx = cv.getContext('2d');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const colors = ['#12709E','#4FB0DC','#7CC6E0','#F2B01E','#EC4F98','#5FB394','#F7941D','#FFFFFF'];
+  const P = Array.from({length: 160}, (_, i) => {
+    const left = i % 2 === 0;
+    return {
+      x: left ? -10 : w + 10, y: h * (0.55 + Math.random() * 0.3),
+      vx: (left ? 1 : -1) * (4 + Math.random() * 7), vy: -(9 + Math.random() * 9),
+      r: 4 + Math.random() * 5, rot: Math.random() * 6.3, vr: (Math.random() - .5) * .35,
+      c: colors[i % colors.length], drop: Math.random() < .25
+    };
+  });
+  const t0 = performance.now();
+  const tick = now => {
+    ctx.clearRect(0, 0, w, h);
+    let alive = 0;
+    for (const p of P){
+      p.vy += 0.28; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      if (p.y < h + 20) alive++;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.c;
+      if (p.drop){
+        ctx.beginPath(); ctx.moveTo(0, -p.r * 1.4);
+        ctx.quadraticCurveTo(p.r, 0, 0, p.r); ctx.quadraticCurveTo(-p.r, 0, 0, -p.r * 1.4); ctx.fill();
+      } else {
+        ctx.fillRect(-p.r / 2, -p.r / 4, p.r, p.r / 2);
+      }
+      ctx.restore();
+    }
+    if (alive && now - t0 < 5000) confRAF = requestAnimationFrame(tick); else stopConfetti();
+  };
+  confRAF = requestAnimationFrame(tick);
+}
+
+/* ---------- Toast ---------- */
+let toastTimer, undoFn;
+function showToast(text, undo){
+  const t = document.getElementById('toast');
+  document.getElementById('toast-text').textContent = text;
+  const u = document.getElementById('toast-undo');
+  undoFn = typeof undo === 'function' ? undo : null;
+  u.hidden = !undoFn;
+  t.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add('hidden'), 3500);
+}
+document.getElementById('toast-undo').addEventListener('click', () => {
+  if (undoFn) undoFn();
+  undoFn = null;
+  document.getElementById('toast').classList.add('hidden');
+});
+
+/* ---------- Statistik ---------- */
+let mode = 'week';
+let barsData = [];
+function byDayMap(){
+  const m = {};
+  store.entries.forEach(e => { const k = dayKey(new Date(e.ts)); m[k] = (m[k]||0) + e.eff; });
+  return m;
+}
+function firstDay(){
+  if (!store.entries.length) return null;
+  return startOfDay(new Date(Math.min(...store.entries.map(e => e.ts))));
+}
+function computeStats(){
+  const today = startOfDay(new Date());
+  const map = byDayMap(), first = firstDay(), goal = store.goalMl;
+  const bars = [];
+  let sum = 0, counted = 0, hit = 0;
+
+  const countDay = (d) => {
+    if (!first || d < first) return;
+    const v = map[dayKey(d)] || 0;
+    sum += v; counted++; if (v >= goal) hit++;
+  };
+
+  if (mode === 'week' || mode === 'month'){
+    const n = mode === 'week' ? 7 : 30;
+    const wd = new Intl.DateTimeFormat('de-CH',{weekday:'short'});
+    const full = new Intl.DateTimeFormat('de-CH',{weekday:'short', day:'numeric', month:'short'});
+    for (let i = n-1; i >= 0; i--){
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      const v = map[dayKey(d)] || 0;
+      countDay(d);
+      const label = mode === 'week' ? wd.format(d).replace('.','') : ((i % 5 === 0) ? String(d.getDate()) : '');
+      bars.push({v, label, detail:`${full.format(d)}: ${L(v)} L`});
+    }
+  } else {
+    const mf = new Intl.DateTimeFormat('de-CH',{month:'short'});
+    const mfl = new Intl.DateTimeFormat('de-CH',{month:'long', year:'numeric'});
+    for (let i = 11; i >= 0; i--){
+      const ms = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const me = new Date(today.getFullYear(), today.getMonth() - i + 1, 0);
+      const end = me > today ? today : me;
+      const start = first && first > ms ? first : ms;
+      let s = 0, days = 0;
+      if (first && start <= end){
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)){ s += map[dayKey(d)] || 0; days++; }
+      }
+      const v = days ? s/days : 0;
+      bars.push({v, label: mf.format(ms).replace('.','').slice(0,3), detail:`${mfl.format(ms)}: ${days ? 'Ø ' + L(v) + ' L pro Tag' : 'keine Daten'}`});
+    }
+    for (let i = 364; i >= 0; i--){ const d = new Date(today); d.setDate(d.getDate() - i); countDay(d); }
+  }
+  return {bars, avg: counted ? sum/counted : 0, counted, hit};
+}
+function renderStats(){
+  document.querySelectorAll('.seg').forEach(b => {
+    const on = b.dataset.mode === mode;
+    b.setAttribute('aria-selected', on);
+    b.className = `seg tap rounded-xl py-2 text-sm font-semibold ${on ? 'bg-surface text-ink shadow-sm' : 'text-muted'}`;
+  });
+  const {bars, avg, counted, hit} = computeStats();
+  barsData = bars;
+  const range = {week:'letzte 7 Tage', month:'letzte 30 Tage', year:'letzte 12 Monate'}[mode];
+  document.getElementById('avg-label').textContent = `Durchschnitt, ${range}`;
+  document.getElementById('avg-value').textContent = L(avg);
+  document.getElementById('goal-days').textContent = counted
+    ? `Tagesziel an ${hit} von ${counted} ${counted === 1 ? 'Tag' : 'Tagen'} erreicht`
+    : 'Noch keine Daten. Trag dein erstes Getränk ein.';
+
+  const goal = store.goalMl;
+  const max = Math.max(goal, ...bars.map(b => b.v)) * 1.12;
+  document.getElementById('goal-line').style.bottom = (goal/max*100) + '%';
+  document.getElementById('bars').innerHTML = bars.map((b,i) => `
+    <button data-bar="${i}" aria-label="${esc(b.detail)}" class="flex-1 h-full flex items-end rounded-t-md">
+      <span class="bar-fill block w-full rounded-t-md ${b.v >= goal ? 'bg-accent' : 'bg-soft'}" style="height:${b.v ? Math.max(2, b.v/max*100) : 0}%"></span>
+    </button>`).join('');
+  document.getElementById('bar-labels').innerHTML = bars.map(b => `<span class="flex-1 text-center overflow-visible whitespace-nowrap">${esc(b.label)}</span>`).join('');
+  document.getElementById('bar-detail').textContent = 'Tipp auf einen Balken für Details.';
+}
+document.querySelectorAll('.seg').forEach(b => b.addEventListener('click', () => { mode = b.dataset.mode; renderStats(); }));
+document.getElementById('bars').addEventListener('click', e => {
+  const b = e.target.closest('[data-bar]'); if (!b) return;
+  document.getElementById('bar-detail').textContent = barsData[+b.dataset.bar].detail;
+  document.querySelectorAll('#bars [data-bar] span').forEach((s,i) => s.style.opacity = i === +b.dataset.bar ? '1' : '.45');
+});
+
+/* ---------- Einstellungen ---------- */
+const goalInput = document.getElementById('goal');
+function renderSettings(){
+  renderReminders();
+  goalInput.value = store.goalMl;
+  document.getElementById('goal-out').textContent = L(store.goalMl);
+}
+goalInput.addEventListener('input', () => {
+  store.goalMl = Number(goalInput.value);
+  document.getElementById('goal-out').textContent = L(store.goalMl);
+  save(); renderToday();
+});
+
+const ioMsg = (t, warn) => { const m = document.getElementById('io-msg'); m.textContent = t; m.className = `mt-3 text-sm min-h-[1.25rem] ${warn ? 'text-warn' : 'text-muted'}`; };
+
+let dlPromise;
+function getDownloads(){
+  if (!(window.claude && typeof window.claude.use === 'function')) return Promise.resolve(undefined);
+  if (!dlPromise) dlPromise = window.claude.use('downloads').catch(() => null);
+  return dlPromise;
+}
+async function offerFile(filename, data){
+  ioMsg('Export wird vorbereitet …');
+  const dl = await getDownloads();
+  if (dl === undefined){
+    const url = URL.createObjectURL(new Blob([data], {type: filename.endsWith('.csv') ? 'text/csv' : 'application/json'}));
+    const a = document.createElement('a'); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    ioMsg(`Gesichert als ${filename}`);
+    return;
+  }
+  if (!dl){ ioMsg('Export ist in dieser Ansicht nicht verfügbar.', true); return; }
+  try{
+    await dl.save({filename, data});
+    ioMsg(`Gesichert als ${filename}`);
+  }catch(err){
+    const c = err && err.code;
+    if (c === 'declined') ioMsg('Export abgebrochen.');
+    else if (c === 'rate_limited') ioMsg('Bitte einen Moment warten und erneut versuchen.', true);
+    else ioMsg('Export ist in dieser Ansicht nicht verfügbar.', true);
+  }
+}
+document.getElementById('export-json').addEventListener('click', () => {
+  if (!store.entries.length){ ioMsg('Noch keine Einträge zum Sichern.', true); return; }
+  const data = JSON.stringify({app:'trinktracker', version:1, exportedAt:new Date().toISOString(), goalMl:store.goalMl, entries:store.entries}, null, 2);
+  offerFile(`trinktracker-backup-${dayKey(new Date())}.json`, data);
+});
+document.getElementById('export-csv').addEventListener('click', () => {
+  if (!store.entries.length){ ioMsg('Noch keine Einträge zum Exportieren.', true); return; }
+  const rows = [['Datum','Zeit','Getränk','Menge (ml)','Faktor','Effektiv (ml)']];
+  [...store.entries].sort((a,b) => a.ts - b.ts).forEach(e => {
+    const d = new Date(e.ts);
+    rows.push([dayKey(d), timeFmt.format(d), e.name, e.ml, String(e.factor), e.eff]);
+  });
+  const csv = '\ufeff' + rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  offerFile(`trinktracker-${dayKey(new Date())}.csv`, csv);
+});
+
+let pendingImport = null;
+const fileInput = document.getElementById('import-file');
+document.getElementById('import-btn').addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files && fileInput.files[0];
+  fileInput.value = '';
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      const d = JSON.parse(r.result);
+      const arr = Array.isArray(d) ? d : (d && Array.isArray(d.entries) ? d.entries : null);
+      if (!arr) throw new Error();
+      const entries = arr.map(cleanEntry).filter(Boolean);
+      if (!entries.length){ ioMsg('In dieser Datei wurden keine gültigen Einträge gefunden.', true); return; }
+      pendingImport = {entries, goalMl: d && validGoal(d.goalMl) ? d.goalMl : null};
+      document.getElementById('import-text').textContent =
+        `${entries.length} Einträge gefunden. Möchtest du deine aktuellen ${store.entries.length} Einträge ersetzen oder beide zusammenführen?`;
+      document.getElementById('import-confirm').classList.remove('hidden');
+      ioMsg('');
+    }catch(e){
+      ioMsg('Diese Datei lässt sich nicht lesen. Wähle eine JSON-Sicherung aus dieser App.', true);
+    }
+  };
+  r.onerror = () => ioMsg('Die Datei konnte nicht geöffnet werden.', true);
+  r.readAsText(file);
+});
+function finishImport(merge){
+  if (!pendingImport) return;
+  if (merge){
+    const byId = new Map(store.entries.map(e => [e.id, e]));
+    pendingImport.entries.forEach(e => byId.set(e.id, e));
+    store.entries = [...byId.values()];
+  } else {
+    store.entries = pendingImport.entries;
+  }
+  if (pendingImport.goalMl && !merge) store.goalMl = pendingImport.goalMl;
+  save();
+  ioMsg(`Wiederhergestellt: ${store.entries.length} Einträge.`);
+  pendingImport = null;
+  document.getElementById('import-confirm').classList.add('hidden');
+  renderAll();
+}
+document.getElementById('imp-replace').addEventListener('click', () => finishImport(false));
+document.getElementById('imp-merge').addEventListener('click', () => finishImport(true));
+document.getElementById('imp-cancel').addEventListener('click', () => {
+  pendingImport = null;
+  document.getElementById('import-confirm').classList.add('hidden');
+  ioMsg('Import abgebrochen.');
+});
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  document.getElementById('reset-text').textContent = store.entries.length
+    ? `Wirklich alle ${store.entries.length} Einträge löschen? Das lässt sich nicht rückgängig machen.`
+    : 'Es sind keine Einträge gespeichert.';
+  document.getElementById('reset-yes').hidden = !store.entries.length;
+  document.getElementById('reset-confirm').classList.remove('hidden');
+});
+document.getElementById('reset-no').addEventListener('click', () => document.getElementById('reset-confirm').classList.add('hidden'));
+document.getElementById('reset-yes').addEventListener('click', () => {
+  store.entries = [];
+  save(); renderAll();
+  document.getElementById('reset-confirm').classList.add('hidden');
+  showToast('Alle Einträge gelöscht', false);
+});
+
+/* ---------- Navigation ---------- */
+const VIEWS = ['heute','statistik','einstellungen'];
+function show(view){
+  if (!VIEWS.includes(view)) view = 'heute';
+  document.querySelectorAll('[data-view]').forEach(s => s.hidden = s.dataset.view !== view);
+  document.querySelectorAll('.navbtn').forEach(b => {
+    const on = b.dataset.nav === view;
+    b.setAttribute('aria-current', on ? 'page' : 'false');
+    b.style.color = on ? 'var(--accent)' : 'var(--muted)';
+  });
+  if (view === 'statistik') renderStats();
+  if (view === 'einstellungen') renderSettings();
+  window.scrollTo(0,0);
+  try{ history.replaceState(null, '', '#' + view); }catch(e){}
+}
+document.querySelectorAll('.navbtn').forEach(b => b.addEventListener('click', () => show(b.dataset.nav)));
+
+function renderAll(){ renderCats(); renderDrinks(); renderToday(); renderStats(); renderSettings(); }
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { renderToday(); renderStats(); } });
+
+renderAll();
+show((location.hash || '').slice(1));
+getDownloads();
+</script>
+</body>
+</html>
